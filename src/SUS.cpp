@@ -40,8 +40,6 @@ using namespace mahi::util;
 class SUS : public Application {
 public:
 
-    enum Sex { NoGender, Male, Female };
-
     enum Response {
         NoResponse = -3,
         StronglyDisagree = -2,
@@ -51,14 +49,11 @@ public:
         StronglyAgree = 2
     };
 
-
     std::string subject;                 ///< subject input text
     bool loaded = false;                 ///< was the Likert config loaded?
     std::string title;                   ///< survey title
     std::vector<std::string> questions;  ///< survey questions
     std::vector<Response> responses;     ///< survey responses
-    Sex sex = NoGender;                  ///< subject's biological sex
-    int age = -1;                        ///< subject age
     bool autoClose = false;              ///< should the app close when the user submits a response?
     float width, height;                 ///< window width/height
     float qWidth, rowHeight;;            ///< row width/height
@@ -82,23 +77,6 @@ public:
             // Subject Info
             ImGui::SetNextItemWidth(100);
             ImGui::InputText("Subject     ", &subject);
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(50);
-            if (ImGui::BeginCombo("Age     ", age != -1 ? std::to_string(age).c_str() : "")) {
-                for (int i = 0; i < 100; ++i) {
-                    if (ImGui::Selectable(std::to_string(i).c_str(), i == age))
-                        age = i;
-                    if (age == i)
-                        ImGui::SetItemDefaultFocus();
-                }
-                ImGui::EndCombo();
-            }
-            ImGui::SameLine();
-            if (ImGui::RadioButton("Male", sex == Male))
-                sex = Male;
-            ImGui::SameLine();
-            if (ImGui::RadioButton("Female", sex == Female))
-                sex = Female;
             ImGui::SameLine();
             ImGui::SameLine(ImGui::GetWindowWidth() - 105);
             if (ImGui::ButtonColored("Submit", Reds::FireBrick, {100,0})) {
@@ -203,17 +181,6 @@ public:
             ImGui::OpenPopup("Message");
             return false;
         }
-        // make sure subject has age
-        if (age == -1) {
-            message = "Please enter your age";
-            ImGui::OpenPopup("Message");
-            return false;
-        }
-        if (sex == NoGender) {
-            message = "Please enter your biological sex";
-            ImGui::OpenPopup("Message");
-            return false;
-        }
         // make sure every question answered
         for (unsigned int i = 0; i < responses.size();  ++i) {
             if (responses[i] == NoResponse) {
@@ -236,8 +203,6 @@ public:
         // save data
         json j;
         j["subject"] = subject;
-        j["age"] = age;
-        j["sex"] = (sex == Male ? "Male" : "Female");
         j["responses"] = responses;
         j["responsesText"] = responsesText;
         std::ofstream file(subject + ".json");
@@ -245,8 +210,6 @@ public:
             file << std::setw(4) << j << std::endl;
         // reset state
         subject = "";
-        sex = NoGender;
-        age = -1;
         responses = std::vector<Response>(responses.size(), NoResponse);
         message = "Thank you for participating!";
         ImGui::OpenPopup("Message");

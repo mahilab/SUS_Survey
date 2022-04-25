@@ -205,7 +205,10 @@ public:
         j["subject"] = subject;
         j["responses"] = responses;
         j["responsesText"] = responsesText;
-        std::ofstream file(subject + ".json");
+        // get next avaliable filename
+        std::string filename = subject + "_SUS" + ".json";
+        filename = getNextFilename(filename);
+        std::ofstream file(filename);
         if (file.is_open())
             file << std::setw(4) << j << std::endl;
         // reset state
@@ -214,6 +217,18 @@ public:
         message = "Thank you for participating!";
         ImGui::OpenPopup("Message");
         return true;
+    }
+    /// returns the next avaliable filename without overwriting
+    std::string getNextFilename(std::string filename)
+    {
+        int i = 1;
+        while(fs::exists(filename))
+        {
+            filename = filename.substr(0, filename.find_last_of(".")) + std::to_string(i) + ".json";
+            ++i;
+        }
+        std::cout << "Saving to " << filename << std::endl;
+        return filename;
     }
 };
 

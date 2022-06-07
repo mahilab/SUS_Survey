@@ -51,12 +51,18 @@ public:
 
     std::string subject;                 ///< subject input text
     bool loaded = false;                 ///< was the Likert config loaded?
-    std::string title;                   ///< survey title
+    std::string title_;                  ///< survey title
+    ImFont*             font_;           // font pointer for the gui
+    float scale_{1.0f};                  ///< scale factor for the gui
+    float fontsize_{16};                 // font size for the gui
+    float width_{1920};                  // window width
+    float height_{1080};                 // window height
     std::vector<std::string> questions;  ///< survey questions
     std::vector<Response> responses;     ///< survey responses
     bool autoClose = false;              ///< should the app close when the user submits a response?
     float width, height;                 ///< window width/height
-    float qWidth, rowHeight;;            ///< row width/height
+    float qWidth, qWidthOffset;         ///< question width/offset
+    float rowHeight;            ///< row height
     std::string message;                 ///< error message to display
 
 
@@ -74,12 +80,16 @@ public:
     void update() override {
         ImGui::BeginFixed("##SUS", {0,0}, {width, height}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings);
         if (loaded) {
+            
+            // change font used
+            ImGui::PushFont(font_);      
+
             // Subject Info
-            ImGui::SetNextItemWidth(100);
+            ImGui::SetNextItemWidth(100*scale_);
             ImGui::InputText("Subject     ", &subject);
             ImGui::SameLine();
-            ImGui::SameLine(ImGui::GetWindowWidth() - 105);
-            if (ImGui::ButtonColored("Submit", Reds::FireBrick, {100,0})) {
+            ImGui::SameLine(ImGui::GetWindowWidth() - 105*scale_);
+            if (ImGui::ButtonColored("Submit", Reds::FireBrick, {100*scale_,0})) {
                 bool result = saveResponse();
                 if (result && autoClose)
                     quit();
@@ -88,15 +98,15 @@ public:
             ImGui::Separator();
             ImGui::Separator();
             ImGui::Text("\nQuestion");
-            ImGui::SameLine(qWidth - 20);
+            ImGui::SameLine(qWidth - 20*scale_);
             ImGui::Text("Strongly\nDiagree");
-            ImGui::SameLine(qWidth + 65);
+            ImGui::SameLine(qWidth + 65*scale_);
             ImGui::Text("\nDisagree");
-            ImGui::SameLine(qWidth + 145);
+            ImGui::SameLine(qWidth + 145*scale_);
             ImGui::Text("\nNeutral");
-            ImGui::SameLine(qWidth + 230);
+            ImGui::SameLine(qWidth + 230*scale_);
             ImGui::Text("\nAgree");
-            ImGui::SameLine(qWidth + 305);
+            ImGui::SameLine(qWidth + 305*scale_);
             ImGui::Text("Strongly\n Agree");
             // render questions
             float initialY = ImGui::GetCursorPos().y;
@@ -112,16 +122,16 @@ public:
                 ImGui::SameLine(qWidth);
                 if (ImGui::RadioButton("##SD",responses[i] == StronglyDisagree))
                     responses[i] = StronglyDisagree;
-                ImGui::SameLine(qWidth+80);
+                ImGui::SameLine(qWidth+80*scale_);
                 if (ImGui::RadioButton("##D",responses[i] == Disagree))
                     responses[i] = Disagree;
-                ImGui::SameLine(qWidth+160);
+                ImGui::SameLine(qWidth+160*scale_);
                 if (ImGui::RadioButton("##N",responses[i] == Neutral))
                     responses[i] = Neutral;
-                ImGui::SameLine(qWidth+240);
+                ImGui::SameLine(qWidth+240*scale_);
                 if (ImGui::RadioButton("##A",responses[i] == Agree))
                     responses[i] = Agree;
-                ImGui::SameLine(qWidth+320);
+                ImGui::SameLine(qWidth+320*scale_);
                 if (ImGui::RadioButton("##SA",responses[i] == StronglyAgree))
                     responses[i] = StronglyAgree;
                 ImGui::PopID();
@@ -148,17 +158,28 @@ public:
                 std::ifstream file("SUS.json");
                 json j;
                 file >> j;
-                title = j["title"].get<std::string>();
+                title_ = j["title"].get<std::string>();
+                fontsize_   =   j["fontsize"].get<float>();
                 questions = j["questions"].get<std::vector<std::string>>();
                 autoClose = j["autoClose"].get<bool>();
                 rowHeight = j.count("rowHeight") > 0 ? j["rowHeight"].get<float>() : 30;
+                qWidthOffset = j.count("qWidthOffset") > 0 ? j["qWidthOffset"].get<float>() : 175;
+
+                // scale based on desired font size compared to default
+                scale_ = fontsize_ / 16.0f;
+
+                // load font and set font size
+                ImGuiIO& io     =   ImGui::GetIO();
+                font_           =   io.Fonts->AddFontFromMemoryTTF(mahi::gui::Roboto_Bold_ttf, mahi::gui::Roboto_Bold_ttf_len, fontsize_);
+
                 for (auto& q : questions)
                     qWidth = 7 * q.length() > qWidth ? 7 * q.length() : qWidth;
-                qWidth += 75;
-                width = qWidth + 385;
-                height = 85 + rowHeight * questions.size();
+                qWidth += qWidthOffset;
+                qWidth *= scale_;
+                width = qWidth + 385 * scale_;
+                height = 85 * scale_ + rowHeight * questions.size();
                 responses = std::vector<Response>(questions.size(), NoResponse); 
-                set_window_title(title);
+                set_window_title(title_);
                 set_window_size((int)width, (int)height);
                 center_window();
             }
@@ -205,7 +226,7 @@ public:
         j["subject"] = subject;
         j["responses"] = responses;
         j["responsesText"] = responsesText;
-        // get next avaliable filename
+        // get next available filename
         std::string filename = "Subject" + subject + "_SUS" + ".json";
         filename = getNextFilename(filename);
         std::ofstream file(filename);
@@ -245,6 +266,7 @@ int main(int argc, char const *argv[])
     if (!fs::exists("SUS.json")) {
         json j;
         j["title"] = "System Usability Survey";
+        j["fontsize"]  =  16;
         j["questions"] = {"I think I would like to use this device frequently.", 
                           "I found the device unnecessarily complex.",
                           "I thought the device was easy to use.",
@@ -257,6 +279,7 @@ int main(int argc, char const *argv[])
                           "I needed to learn a lot of things before I could get going with this device."};
         j["autoClose"] = true;
         j["rowHeight"] = 30;
+        j["qWidthOffset"] = 175;
         std::ofstream file("SUS.json");
         if (file.is_open())
             file << std::setw(4) << j;

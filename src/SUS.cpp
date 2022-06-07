@@ -14,32 +14,41 @@
 //
 // Author(s): Zane Zook (zaz2@rice.edu) based on likert survey example by Evan Pezent
 
+
 //-----------------------------------------------------------------------------
 // preprocessor directives
 //-----------------------------------------------------------------------------
 
-#define MAHI_GUI_NO_CONSOLE
-#include <Mahi/Gui.hpp>
-#include <Mahi/Util.hpp>
+/// mahi includes
+#define MAHI_GUI_NO_CONSOLE // turns off conole output
+#include <Mahi/Gui.hpp>     // MAHI libraries for GUI functionality
+#include <Mahi/Util.hpp>    // MAHI libaries for clock, logging, and other functionality
+
+// other includes
 #include <fstream>
 
+// definition of filesystem import based on os
 #if defined(__linux__)
-    #include <experimental/filesystem>
+    #include <experimental/filesystem>  // for linux
     namespace fs = std::experimental::filesystem;
 #else
-    #include <filesystem>
+    #include <filesystem>               // for windows
     namespace fs = std::filesystem;
 #endif
 
+// relevant MAHI namespaces to use
 using namespace mahi::gui;
 using namespace mahi::util;
 
 //-----------------------------------------------------------------------------
 // SUS survey application declaration
 //-----------------------------------------------------------------------------
-class SUS : public Application {
+class SUS : public Application 
+{
 public:
-
+    // private variables
+    //-----------------------------------
+    /// attribute for possible survey responses
     enum Response {
         NoResponse = -3,
         StronglyDisagree = -2,
@@ -49,27 +58,33 @@ public:
         StronglyAgree = 2
     };
 
-    std::string subject;                 ///< subject input text
-    bool loaded = false;                 ///< was the Likert config loaded?
-    std::string title_;                  ///< survey title
-    ImFont*             font_;           // font pointer for the gui
-    float scale_{1.0f};                  ///< scale factor for the gui
-    float fontsize_{16};                 // font size for the gui
-    float width_{1920};                  // window width
-    float height_{1080};                 // window height
-    std::vector<std::string> questions;  ///< survey questions
-    std::vector<Response> responses;     ///< survey responses
-    bool autoClose = false;              ///< should the app close when the user submits a response?
-    float width, height;                 ///< window width/height
-    float qWidth, qWidthOffset;         ///< question width/offset
-    float rowHeight;            ///< row height
-    std::string message;                 ///< error message to display
+    /// gui rendering related variables
+    bool            loaded{false};  // was the config file loaded?
+    std::string     title_;         // survey title
+    float           scale_{1.0f};   // scale factor for the gui
+    float           fontsize_{16};  // font size for the gui
+    float           width_{1920};   // window width
+    float           height_{1080};  // window height
+    float width, height;            // window width/height
+    float qWidth, qWidthOffset;     // question width/offset
+    float rowHeight;                // row height
+    ImFont*         font_;          // font pointer for the gui
+
+    /// gui behavior variables
+    std::string message;            // error message to display
+    bool autoClose{false};          // should the app close when the user submits a response?
+    
+    /// survey variables
+    std::vector<std::string> questions;  // survey questions
+    std::vector<Response>    responses;  // survey responses
+    std::string              subject;    // subject input text
 
 
     // construction methods
     //-----------------------------------
     /// constructor
-    SUS() : Application(500,500,"",false) { 
+    SUS() : Application(500,500,"",false) 
+    { 
         ImGui::DisableViewports();
         loaded = load();
     }
@@ -78,7 +93,8 @@ public:
     //-----------------------------------
     /// SUS survey main update code
     void update() override {
-        ImGui::BeginFixed("##SUS", {0,0}, {width, height}, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings);
+        ImGui::BeginFixed("##SUS", {0,0}, {width, height}, 
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings);
         if (loaded) {
             
             // change font used
@@ -94,6 +110,7 @@ public:
                 if (result && autoClose)
                     quit();
             }
+
             // Header
             ImGui::Separator();
             ImGui::Separator();
@@ -108,6 +125,7 @@ public:
             ImGui::Text("\nAgree");
             ImGui::SameLine(qWidth + 305*scale_);
             ImGui::Text("Strongly\n Agree");
+
             // render questions
             float initialY = ImGui::GetCursorPos().y;
             for (unsigned int i = 0; i < questions.size(); ++i) {
@@ -136,6 +154,7 @@ public:
                     responses[i] = StronglyAgree;
                 ImGui::PopID();
             }
+
             // begin message modal if opened this frame
             bool dummy = true;
             if (ImGui::BeginPopupModal("Message", &dummy, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -144,6 +163,7 @@ public:
             }
         }
         else {
+            // error output message
             ImGui::Text("SUS survey failed to load! :(");
         }
         ImGui::End();
@@ -153,11 +173,16 @@ public:
     //-----------------------------------
     /// load in SUS config file
     bool load() {
+        // checks for config file
         if (fs::exists("SUS.json")) {
+            // load in config settings
             try {
+                // open and load in config file
                 std::ifstream file("SUS.json");
                 json j;
                 file >> j;
+                
+                // convert relevant variables for use in GUI
                 title_ = j["title"].get<std::string>();
                 fontsize_   =   j["fontsize"].get<float>();
                 questions = j["questions"].get<std::vector<std::string>>();
@@ -172,6 +197,7 @@ public:
                 ImGuiIO& io     =   ImGui::GetIO();
                 font_           =   io.Fonts->AddFontFromMemoryTTF(mahi::gui::Roboto_Bold_ttf, mahi::gui::Roboto_Bold_ttf_len, fontsize_);
 
+                // calculate question width
                 for (auto& q : questions)
                     qWidth = 7 * q.length() > qWidth ? 7 * q.length() : qWidth;
                 qWidth += qWidthOffset;
@@ -179,6 +205,8 @@ public:
                 width = qWidth + 385 * scale_;
                 height = 85 * scale_ + rowHeight * questions.size();
                 responses = std::vector<Response>(questions.size(), NoResponse); 
+
+                // set window title and size
                 set_window_title(title_);
                 set_window_size((int)width, (int)height);
                 center_window();
@@ -226,12 +254,14 @@ public:
         j["subject"] = subject;
         j["responses"] = responses;
         j["responsesText"] = responsesText;
+
         // get next available filename
         std::string filename = "Subject" + subject + "_SUS" + ".json";
         filename = getNextFilename(filename);
         std::ofstream file(filename);
         if (file.is_open())
             file << std::setw(4) << j << std::endl;
+
         // reset state
         subject = "";
         responses = std::vector<Response>(responses.size(), NoResponse);
@@ -239,7 +269,7 @@ public:
         ImGui::OpenPopup("Message");
         return true;
     }
-    /// returns the next avaliable filename without overwriting
+    /// returns the next available filename without overwriting
     std::string getNextFilename(std::string filename)
     {
         int i = 0;
